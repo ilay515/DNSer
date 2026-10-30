@@ -6,7 +6,10 @@ data
 .env
 .env.*
 .system_generated
-.agents
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/e2e/
 .gemini
 node_modules/
 .e2e/artifacts/
