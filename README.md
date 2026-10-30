@@ -114,37 +114,67 @@ curl --dns-servers 127.0.0.1:5353 http://local.dev:3000
 
 ---
 
-## 🔬 Test Suites
+## 🔬 AI-Driven End-to-End Test Suite
 
-DNSer maintains a comprehensive automated test suite with 100% test pass rate across engine and REST interfaces:
+DNSer uses [`e2e`](https://e2e.tester.army) with Google Gemini AI agents to run resilient, selector-free end-to-end tests across the web UI and live UDP DNS engine. Instead of brittle CSS or XPath selectors, tests interact using natural language instructions (`agent.act`), semantic assertions (`agent.assert`), and direct UDP socket verification.
 
+### 🔑 1. Configure API Key
+The test runner uses `@ai-sdk/google` (`gemini-3.5-flash-lite` by default) to drive browser interactions.
+
+Set your Google Generative AI API key in your environment or shell configuration (`~/.zshrc` or `~/.bashrc`):
 ```bash
-# Run all test suites
-pnpm test
-
-# Run DNS engine resolution tests
-pnpm test:dns
-
-# Run REST API, RBAC, and Authentication tests
-pnpm test:api
+export GOOGLE_GENERATIVE_AI_API_KEY="your-gemini-api-key"
 ```
 
-### Coverage Overview:
-- **`test/dns.test.ts`**:
-  - RFC 1035 UDP packet decoding and response encoding
-  - Exact match (`local.dev`), case-insensitivity (`LoCaL.DeV.`), and trailing dots
-  - Wildcard subdomain synthesis (`*.local.dev` -> `auth.local.dev`)
-  - AAAA (IPv6), TXT, MX (priority), and CNAME alias resolution
-  - Active toggle states (`is_active: 0` suppression)
-  - Cascade deletion integrity on zones and associated records
-  - Ring-buffer in-memory query logging
-- **`test/api.test.ts`**:
-  - Scrypt password hashing & secure session tokens
-  - Authentication middleware (`401 Unauthorized` checks)
-  - RBAC enforcement (Developer vs Admin permission gating)
-  - Domain validation and duplicate zone rejection
-  - DNS record creation, payload validation, and inline updates
-  - Settings persistence & live statistics aggregation
+### ⚙️ 2. Configuration (`e2e.config.ts`)
+The test configuration is located in [`e2e.config.ts`](e2e.config.ts):
+```ts
+import type { E2EConfig } from 'e2e';
+import { web } from '@e2e-dev/web';
+import { google } from '@ai-sdk/google';
+
+export default {
+  timeout: 60_000,
+  agents: {
+    default: {
+      model: google('gemini-3.5-flash-lite'),
+      system: 'You are a fast, concise QA agent.',
+    },
+  },
+  targets: [{
+    engine: web(),
+    app: {
+      url: process.env.APP_URL ?? 'http://localhost:3000',
+    },
+  }],
+} satisfies E2EConfig;
+```
+
+> **Note**: Requires Node.js ≥ 24.8.0.
+
+### 🧪 3. Running Tests
+Ensure the server is running (`pnpm start` or `pnpm dev:server`), then execute:
+
+```bash
+# Run the complete e2e test suite
+pnpm test
+
+# Run a specific e2e test
+pnpm exec e2e run tests/dns-record.e2e.ts
+```
+
+### 📋 Test Coverage Overview:
+- [**`tests/dns-record.e2e.ts`**](tests/dns-record.e2e.ts):
+  - Natural language login and dynamic DNS record creation via Quick Route
+  - UDP DNS socket query (`dgram`) against the running daemon on port 5353 to verify real-time `NOERROR` and `127.0.0.1` resolution
+- [**`tests/resolver-widget.e2e.ts`**](tests/resolver-widget.e2e.ts):
+  - Interacts with the in-browser DNS resolver widget to query hostnames and assert responses
+- [**`tests/zone-management.e2e.ts`**](tests/zone-management.e2e.ts):
+  - Authoritative domain zone creation modal via `agent.act` and verified via `agent.assert`
+- [**`tests/query-logs.e2e.ts`**](tests/query-logs.e2e.ts):
+  - Sends UDP DNS query packets to generate traffic and asserts real-time appearance in the live query stream
+- [**`tests/settings-upstream.e2e.ts`**](tests/settings-upstream.e2e.ts):
+  - Configures server settings (e.g., query log retention limit) and confirms persistence notification
 
 ---
 

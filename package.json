@@ -12,9 +12,8 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build": "pnpm build:client && pnpm build:server",
     "start": "node dist/server/index.js",
-    "test": "tsx test/dns.test.ts && tsx test/api.test.ts",
-    "test:dns": "tsx test/dns.test.ts",
-    "test:api": "tsx test/api.test.ts",
+    "test": "e2e run",
+    "test:e2e": "e2e run",
     "query": "tsx src/server/cli-query.ts"
   },
   "dependencies": {
@@ -29,16 +28,22 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@ai-sdk/google": "^4.0.109",
+    "@e2e-dev/web": "^0.12.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/dns-packet": "^5.6.5",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "ai": "^7.0.0",
     "concurrently": "^9.1.2",
+    "e2e": "^0.17.0",
+    "playwright": "^1.64.1",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "zod": "^4.1.8"
   }
 }
