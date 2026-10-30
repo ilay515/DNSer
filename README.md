@@ -20,20 +20,10 @@
 
 <div align="center">
   <img src="docs/dashboard.png" alt="DNSer Overview Dashboard" width="100%" style="max-width: 960px; border-radius: 10px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);" />
-  <p><em>DNSer real-time dashboard with Quick Route bar, interactive DNS resolver, and live query traffic feed.</em></p>
-</div>
-
----
-
-## 🎬 10-Second Demo
-
-Watch DNSer in action with clean logs and real-time DNS resolution:
-
-<div align="center">
-  <video src="docs/demo.mp4" controls width="100%" style="max-width: 900px; border-radius: 10px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);" poster="docs/dashboard.png">
-    Your browser does not support the video tag. View the demo video file directly at <a href="docs/demo.mp4"><code>docs/demo.mp4</code></a>.
-  </video>
-  <p><em>Direct video file: <a href="docs/demo.mp4"><code>docs/demo.mp4</code></a></em></p>
+  <p><em>Real-time dashboard with Quick Route bar, interactive DNS resolver, and live query traffic feed.</em></p>
+  <br />
+  <img src="docs/domains.png" alt="DNSer Authoritative Zones and Records" width="100%" style="max-width: 960px; border-radius: 10px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);" />
+  <p><em>Authoritative zones and DNS record management with inline editing.</em></p>
 </div>
 
 ---
