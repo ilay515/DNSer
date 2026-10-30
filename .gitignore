@@ -6,3 +6,5 @@ data
 .env
 .env.*
 .system_generated
+.agents
+.gemini
