@@ -78,7 +78,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#0a0b0e] text-neutral-100 flex flex-col selection:bg-blue-600/30">
       <Navbar
         user={currentUser}
         currentTab={currentTab}
@@ -87,7 +87,7 @@ export const App: React.FC = () => {
         stats={stats}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
         {currentTab === 'overview' && (
           <OverviewTab
             stats={stats}
@@ -127,7 +127,7 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
+      <footer className="border-t border-white/[0.05] bg-[#090a0d] py-3.5 text-center text-[11px] text-neutral-500">
         DNSer • Local Offline Developer Daemon • Port {stats?.dns.port || 5353} (UDP)
       </footer>
     </div>
