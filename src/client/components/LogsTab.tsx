@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Activity, Play, Pause, Trash2, Search, X } from 'lucide-react';
+import { Activity, Play, Pause, Trash2, Search, Plus, Check } from 'lucide-react';
 import { api, authStorage } from '../api.js';
 import type { QueryLogEntry, UserPublic } from '../types.js';
 
@@ -14,6 +14,7 @@ export const LogsTab: React.FC<LogsTabProps> = ({ user, onRefreshStats }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
+  const [addedDomains, setAddedDomains] = useState<Set<string>>(new Set());
   const logContainerRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -49,7 +50,7 @@ export const LogsTab: React.FC<LogsTabProps> = ({ user, onRefreshStats }) => {
         const entry: QueryLogEntry = JSON.parse(event.data);
         setLogs((prev) => [entry, ...prev.slice(0, 500)]);
       } catch (err) {
-        // Ignore pings
+        // Ignore ping/heartbeats
       }
     };
 
@@ -68,6 +69,25 @@ export const LogsTab: React.FC<LogsTabProps> = ({ user, onRefreshStats }) => {
     } catch (err) {
       console.error('Failed to clear logs:', err);
     }
+  };
+
+  const handleInstantRoute = async (domain: string) => {
+    try {
+      await api.quickRoute(domain, '127.0.0.1');
+      setAddedDomains(prev => new Set(prev).add(domain));
+      onRefreshStats();
+    } catch (err: any) {
+      alert(`Failed to route ${domain}: ${err.message}`);
+    }
+  };
+
+  const formatRelativeTime = (isoString: string) => {
+    const diffSeconds = Math.round((Date.now() - new Date(isoString).getTime()) / 1000);
+    if (diffSeconds < 5) return 'just now';
+    if (diffSeconds < 60) return `${diffSeconds}s ago`;
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    return new Date(isoString).toLocaleTimeString();
   };
 
   const filteredLogs = logs.filter((log) => {
@@ -90,14 +110,14 @@ export const LogsTab: React.FC<LogsTabProps> = ({ user, onRefreshStats }) => {
       <div className="bg-[#12141c]/90 border border-white/[0.07] rounded-2xl p-3.5 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-neutral-400" strokeWidth={1.75} />
-            <h3 className="font-semibold text-white text-sm tracking-tight">Query Inspector</h3>
+            <Activity className="w-4 h-4 text-neutral-400" strokeWidth={1.8} />
+            <h3 className="font-semibold text-white text-sm tracking-tight">Live Query Stream</h3>
           </div>
 
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-[11px]">
             <span className={`w-1.5 h-1.5 rounded-full ${isStreaming ? 'bg-emerald-400' : 'bg-amber-400'}`} />
             <span className="text-neutral-400 font-mono text-[10px]">
-              {isStreaming ? 'STREAMING' : 'PAUSED'}
+              {isStreaming ? 'LIVE' : 'PAUSED'}
             </span>
           </div>
         </div>
@@ -109,38 +129,35 @@ export const LogsTab: React.FC<LogsTabProps> = ({ user, onRefreshStats }) => {
             <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search domain or IP..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-7 pr-2.5 py-1.5 bg-black/35 border border-white/[0.07] rounded-xl text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-black/35 border border-white/[0.07] rounded-xl text-xs text-neutral-300 focus:outline-none"
-          >
-            <option value="ALL">All Status</option>
-            <option value="NOERROR">NOERROR</option>
-            <option value="NXDOMAIN">NXDOMAIN</option>
-            <option value="FORWARDED">FORWARDED</option>
-          </select>
-
-          {/* Type Filter */}
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-black/35 border border-white/[0.07] rounded-xl text-xs text-neutral-300 focus:outline-none"
-          >
-            <option value="ALL">All Types</option>
-            <option value="A">A</option>
-            <option value="AAAA">AAAA</option>
-            <option value="CNAME">CNAME</option>
-            <option value="TXT">TXT</option>
-            <option value="MX">MX</option>
-          </select>
+          {/* Quick status chips */}
+          <div className="flex items-center p-0.5 rounded-lg bg-black/40 border border-white/[0.06] text-[11px]">
+            {[
+              { id: 'ALL', label: 'All' },
+              { id: 'NOERROR', label: 'Resolved' },
+              { id: 'NXDOMAIN', label: 'Not Found' },
+              { id: 'FORWARDED', label: 'Relayed' },
+            ].map(chip => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setStatusFilter(chip.id)}
+                className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                  statusFilter === chip.id
+                    ? 'bg-white/[0.12] text-white font-medium'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
 
           {/* Pause / Resume */}
           <button
@@ -180,17 +197,21 @@ export const LogsTab: React.FC<LogsTabProps> = ({ user, onRefreshStats }) => {
                 <th className="py-2.5 px-3.5">Type</th>
                 <th className="py-2.5 px-3.5">Question</th>
                 <th className="py-2.5 px-3.5">Status</th>
-                <th className="py-2.5 px-3.5">Answer</th>
+                <th className="py-2.5 px-3.5">Answer / Action</th>
                 <th className="py-2.5 px-3.5 text-right">Latency</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.03] font-mono">
               {filteredLogs.map((log, index) => {
                 const date = new Date(log.timestamp);
-                const timeStr = date.toLocaleTimeString() + '.' + String(date.getMilliseconds()).padStart(3, '0');
+                const exactTime = date.toLocaleTimeString() + '.' + String(date.getMilliseconds()).padStart(3, '0');
+                const isRouted = addedDomains.has(log.query_name);
+
                 return (
-                  <tr key={log.id || index} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-2 px-3.5 text-neutral-400 font-sans">{timeStr}</td>
+                  <tr key={log.id || index} className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="py-2 px-3.5 text-neutral-400 font-sans" title={exactTime}>
+                      {formatRelativeTime(log.timestamp)}
+                    </td>
                     <td className="py-2 px-3.5 text-neutral-300">{log.client_ip}</td>
                     <td className="py-2 px-3.5">
                       <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-neutral-200 border border-white/[0.06] font-semibold text-[10px]">
@@ -214,7 +235,26 @@ export const LogsTab: React.FC<LogsTabProps> = ({ user, onRefreshStats }) => {
                         {log.status}
                       </span>
                     </td>
-                    <td className="py-2 px-3.5 text-neutral-400 max-w-sm truncate">{log.answer || '—'}</td>
+                    <td className="py-2 px-3.5">
+                      {log.status === 'NXDOMAIN' ? (
+                        isRouted ? (
+                          <span className="text-emerald-400 text-xs font-sans flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" /> Routed to 127.0.0.1
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleInstantRoute(log.query_name)}
+                            className="text-[11px] px-2 py-0.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 transition-all cursor-pointer font-sans flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Map to 127.0.0.1
+                          </button>
+                        )
+                      ) : (
+                        <span className="text-neutral-300 truncate max-w-sm block">
+                          {log.answer || '—'}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-2 px-3.5 text-right text-neutral-400">{log.latency_ms}ms</td>
                   </tr>
                 );
@@ -223,7 +263,7 @@ export const LogsTab: React.FC<LogsTabProps> = ({ user, onRefreshStats }) => {
               {filteredLogs.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-neutral-500 font-sans text-xs">
-                    No matching queries found in logs.
+                    No queries yet. Ping <code className="text-neutral-300 font-mono">local.dev</code> from your terminal to see requests live here.
                   </td>
                 </tr>
               )}

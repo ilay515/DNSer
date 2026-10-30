@@ -119,6 +119,27 @@ export const api = {
     });
   },
 
+  quickRoute: async (rawName: string, ip: string = '127.0.0.1'): Promise<DnsRecord> => {
+    const clean = rawName.trim().toLowerCase().replace(/\.+$/, '');
+    const parts = clean.split('.');
+    const baseDomain = parts.length > 2 ? parts.slice(-2).join('.') : clean;
+
+    const domains = await api.getDomains();
+    let domain = domains.find(d => d.name === baseDomain || clean.endsWith('.' + d.name));
+
+    if (!domain) {
+      domain = await api.createDomain(baseDomain, `Zone for ${baseDomain}`);
+    }
+
+    return api.createRecord({
+      domain_id: domain.id,
+      name: clean,
+      type: 'A',
+      value: ip,
+      ttl: 60,
+    });
+  },
+
   updateRecord: async (id: string, updates: Partial<DnsRecord>): Promise<DnsRecord> => {
     return request<DnsRecord>(`/api/records/${id}`, {
       method: 'PUT',

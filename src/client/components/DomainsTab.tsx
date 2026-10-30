@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Plus, Trash2, Edit3, X, Search, Zap, AlertCircle } from 'lucide-react';
+import { Globe, Plus, Trash2, Edit3, X, Search, Zap, AlertCircle, Check, ArrowRight } from 'lucide-react';
 import { api } from '../api.js';
 import type { Domain, DnsRecord, UserPublic, ServerStats } from '../types.js';
 
@@ -25,19 +25,19 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Modals state
+  // Inline new record bar state
+  const [inlineName, setInlineName] = useState('');
+  const [inlineType, setInlineType] = useState<'A' | 'AAAA' | 'CNAME' | 'TXT' | 'MX' | 'PTR'>('A');
+  const [inlineValue, setInlineValue] = useState('127.0.0.1');
+
+  // Inline editing of existing record
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+
+  // Domain modal state
   const [showDomainModal, setShowDomainModal] = useState(false);
   const [newDomainName, setNewDomainName] = useState('');
   const [newDomainDesc, setNewDomainDesc] = useState('');
-
-  const [showRecordModal, setShowRecordModal] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<DnsRecord | null>(null);
-  const [recDomainId, setRecDomainId] = useState<string>('');
-  const [recName, setRecName] = useState('');
-  const [recType, setRecType] = useState<'A' | 'AAAA' | 'CNAME' | 'TXT' | 'MX' | 'PTR'>('A');
-  const [recValue, setRecValue] = useState('');
-  const [recTtl, setRecTtl] = useState(60);
-  const [recPriority, setRecPriority] = useState(10);
 
   const canEdit = user.role === 'admin' || user.role === 'developer';
 
@@ -66,13 +66,9 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
   useEffect(() => {
     if (presetTargetIp && domains.length > 0) {
       const targetDomain = domains.find(d => d.id === selectedDomainId) || domains[0];
-      setRecDomainId(targetDomain.id);
-      setRecName(`dev.${targetDomain.name}`);
-      setRecType('A');
-      setRecValue(presetTargetIp);
-      setRecTtl(60);
-      setEditingRecord(null);
-      setShowRecordModal(true);
+      setSelectedDomainId(targetDomain.id);
+      setInlineName(`dev.${targetDomain.name}`);
+      setInlineValue(presetTargetIp);
       onClearPresetIp?.();
     }
   }, [presetTargetIp, domains]);
@@ -90,12 +86,12 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
       setSelectedDomainId(created.id);
       onRefreshStats();
     } catch (err: any) {
-      setError(err.message || 'Failed to create domain');
+      setError(err.message || 'Failed to create zone');
     }
   };
 
   const handleDeleteDomain = async (id: string, name: string) => {
-    if (!confirm(`Delete domain "${name}" and all associated records?`)) return;
+    if (!confirm(`Delete zone "${name}" and all its routes?`)) return;
     setError(null);
     try {
       await api.deleteDomain(id);
@@ -105,62 +101,41 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
       }
       onRefreshStats();
     } catch (err: any) {
-      setError(err.message || 'Failed to delete domain');
+      setError(err.message || 'Failed to delete zone');
     }
   };
 
-  const handleOpenAddRecord = (domainId: string) => {
-    const domain = domains.find(d => d.id === domainId);
-    setEditingRecord(null);
-    setRecDomainId(domainId);
-    setRecName(domain ? domain.name : '');
-    setRecType('A');
-    setRecValue('127.0.0.1');
-    setRecTtl(60);
-    setRecPriority(10);
-    setShowRecordModal(true);
-  };
-
-  const handleOpenEditRecord = (record: DnsRecord) => {
-    setEditingRecord(record);
-    setRecDomainId(record.domain_id);
-    setRecName(record.name);
-    setRecType(record.type);
-    setRecValue(record.value);
-    setRecTtl(record.ttl);
-    setRecPriority(record.priority || 10);
-    setShowRecordModal(true);
-  };
-
-  const handleSaveRecord = async (e: React.FormEvent) => {
+  const handleInlineAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!recName.trim() || !recValue.trim()) return;
+    if (!selectedDomainId || !inlineName.trim() || !inlineValue.trim()) return;
 
     setError(null);
     try {
-      if (editingRecord) {
-        await api.updateRecord(editingRecord.id, {
-          name: recName.trim(),
-          type: recType,
-          value: recValue.trim(),
-          ttl: recTtl,
-          priority: recPriority,
-        });
-      } else {
-        await api.createRecord({
-          domain_id: recDomainId,
-          name: recName.trim(),
-          type: recType,
-          value: recValue.trim(),
-          ttl: recTtl,
-          priority: recPriority,
-        });
-      }
-      setShowRecordModal(false);
+      await api.createRecord({
+        domain_id: selectedDomainId,
+        name: inlineName.trim(),
+        type: inlineType,
+        value: inlineValue.trim(),
+        ttl: 60,
+      });
+      setInlineName('');
+      setInlineValue('127.0.0.1');
       await loadData();
       onRefreshStats();
     } catch (err: any) {
-      setError(err.message || 'Failed to save record');
+      setError(err.message || 'Failed to add record');
+    }
+  };
+
+  const handleSaveInlineEdit = async (recordId: string) => {
+    if (!editingValue.trim()) return;
+    try {
+      await api.updateRecord(recordId, { value: editingValue.trim() });
+      setEditingRecordId(null);
+      await loadData();
+      onRefreshStats();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update record');
     }
   };
 
@@ -178,7 +153,7 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
   };
 
   const handleDeleteRecord = async (id: string, name: string) => {
-    if (!confirm(`Delete record "${name}"?`)) return;
+    if (!confirm(`Remove route for "${name}"?`)) return;
     try {
       await api.deleteRecord(id);
       await loadData();
@@ -217,7 +192,7 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
         <div className="lg:col-span-1 bg-[#12141c]/90 border border-white/[0.07] rounded-2xl p-3.5 shadow-sm space-y-3">
           <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.06] px-1">
             <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-neutral-400" strokeWidth={1.75} />
+              <Globe className="w-4 h-4 text-neutral-400" strokeWidth={1.8} />
               <h3 className="font-semibold text-white text-xs tracking-tight">Zones</h3>
             </div>
             {canEdit && (
@@ -274,13 +249,13 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
 
             {domains.length === 0 && !loading && (
               <div className="text-center py-6 text-xs text-neutral-500 font-sans">
-                No domain zones configured.
+                No zones configured. Click <span className="font-medium text-neutral-300">+ Zone</span> to create one.
               </div>
             )}
           </div>
         </div>
 
-        {/* Right: Records Table */}
+        {/* Right: Records Area */}
         <div className="lg:col-span-3 bg-[#12141c]/90 border border-white/[0.07] rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
             <div>
@@ -295,137 +270,223 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
                 )}
               </div>
               <p className="text-xs text-neutral-400 mt-0.5">
-                {selectedDomain?.description || 'Active records managed by this local DNS server'}
+                {selectedDomain?.description || 'Routes resolved by local DNS engine'}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-56">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-                <input
-                  type="text"
-                  placeholder="Filter records..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-black/35 border border-white/[0.07] rounded-xl text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              {canEdit && selectedDomain && (
-                <button
-                  onClick={() => handleOpenAddRecord(selectedDomain.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.97] text-white text-xs font-medium transition-all cursor-pointer shadow-sm shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Record
-                </button>
-              )}
+            <div className="relative w-full sm:w-56">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+              <input
+                type="text"
+                placeholder="Filter routes..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-black/35 border border-white/[0.07] rounded-xl text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
             </div>
           </div>
 
-          {/* Quick Preset Buttons */}
+          {/* Inline Add Record Row (Fast & Frictionless) */}
           {canEdit && selectedDomain && (
-            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 text-xs text-neutral-400">
-              <span className="flex items-center gap-1 text-neutral-500 shrink-0 text-[11px]">
-                <Zap className="w-3 h-3 text-amber-400" /> Quick Add:
+            <form onSubmit={handleInlineAddRecord} className="p-2.5 rounded-xl bg-black/35 border border-white/[0.06] flex flex-wrap sm:flex-nowrap items-center gap-2 text-xs">
+              <input
+                type="text"
+                required
+                placeholder={`Name (e.g. api.${selectedDomain.name} or *)`}
+                value={inlineName}
+                onChange={(e) => setInlineName(e.target.value)}
+                className="flex-1 px-3 py-1.5 bg-black/40 border border-white/[0.07] rounded-lg text-white font-mono placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+
+              <select
+                value={inlineType}
+                onChange={(e) => setInlineType(e.target.value as any)}
+                className="w-24 px-2 py-1.5 bg-black/40 border border-white/[0.07] rounded-lg text-neutral-200 font-semibold focus:outline-none"
+              >
+                <option value="A">A</option>
+                <option value="AAAA">AAAA</option>
+                <option value="CNAME">CNAME</option>
+                <option value="TXT">TXT</option>
+                <option value="MX">MX</option>
+              </select>
+
+              <input
+                type="text"
+                required
+                placeholder="Target (e.g. 127.0.0.1)"
+                value={inlineValue}
+                onChange={(e) => setInlineValue(e.target.value)}
+                className="flex-1 px-3 py-1.5 bg-black/40 border border-white/[0.07] rounded-lg text-white font-mono placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+
+              <button
+                type="submit"
+                className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium active:scale-[0.96] transition-all cursor-pointer whitespace-nowrap"
+              >
+                + Add Route
+              </button>
+            </form>
+          )}
+
+          {/* Quick preset chips */}
+          {canEdit && selectedDomain && (
+            <div className="flex items-center gap-2 overflow-x-auto text-xs text-neutral-400">
+              <span className="flex items-center gap-1 text-neutral-500 text-[11px] shrink-0">
+                <Zap className="w-3 h-3 text-amber-400" /> Presets:
               </span>
               <button
+                type="button"
                 onClick={() => {
-                  setRecDomainId(selectedDomain.id);
-                  setRecName(`*.${selectedDomain.name}`);
-                  setRecType('A');
-                  setRecValue('127.0.0.1');
-                  setRecTtl(60);
-                  setShowRecordModal(true);
+                  setInlineName(`*.${selectedDomain.name}`);
+                  setInlineValue('127.0.0.1');
                 }}
-                className="px-2.5 py-1 rounded-lg bg-black/30 hover:bg-white/[0.05] border border-white/[0.06] text-neutral-300 font-mono text-[11px] transition-all cursor-pointer shrink-0"
+                className="px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 font-mono text-[11px] cursor-pointer shrink-0"
               >
-                + Wildcard (*.{selectedDomain.name} → 127.0.0.1)
+                + Wildcard (*.{selectedDomain.name})
               </button>
               <button
+                type="button"
                 onClick={() => {
-                  setRecDomainId(selectedDomain.id);
-                  setRecName(`api.${selectedDomain.name}`);
-                  setRecType('A');
-                  setRecValue('127.0.0.1');
-                  setRecTtl(60);
-                  setShowRecordModal(true);
+                  setInlineName(`api.${selectedDomain.name}`);
+                  setInlineValue('127.0.0.1');
                 }}
-                className="px-2.5 py-1 rounded-lg bg-black/30 hover:bg-white/[0.05] border border-white/[0.06] text-neutral-300 font-mono text-[11px] transition-all cursor-pointer shrink-0"
+                className="px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 font-mono text-[11px] cursor-pointer shrink-0"
               >
                 + api.{selectedDomain.name}
               </button>
+              {stats?.hostIps?.[0] && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInlineName(`lan.${selectedDomain.name}`);
+                    setInlineValue(stats.hostIps[0].address);
+                  }}
+                  className="px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-emerald-400 font-mono text-[11px] cursor-pointer shrink-0"
+                >
+                  + LAN IP ({stats.hostIps[0].address})
+                </button>
+              )}
             </div>
           )}
 
-          {/* Records Table */}
+          {/* Records List Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-white/[0.06] text-neutral-400 uppercase tracking-wider text-[10px] font-medium">
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Name</th>
+                  <th className="py-2.5 px-3">State</th>
+                  <th className="py-2.5 px-3">Hostname</th>
                   <th className="py-2.5 px-3">Type</th>
-                  <th className="py-2.5 px-3">Value</th>
+                  <th className="py-2.5 px-3">Target Value</th>
                   <th className="py-2.5 px-3">TTL</th>
                   {canEdit && <th className="py-2.5 px-3 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04] font-mono">
-                {filteredRecords.map((rec) => (
-                  <tr key={rec.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-2.5 px-3">
-                      <button
-                        onClick={() => handleToggleRecordActive(rec)}
-                        disabled={!canEdit}
-                        className={`w-3 h-3 rounded-full border transition-all cursor-pointer ${
-                          rec.is_active
-                            ? 'bg-emerald-400 border-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.5)]'
-                            : 'bg-neutral-800 border-neutral-600'
-                        }`}
-                        title={rec.is_active ? 'Active (Click to pause)' : 'Paused (Click to activate)'}
-                      />
-                    </td>
-                    <td className="py-2.5 px-3 font-semibold text-white">
-                      {rec.name}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-1.5 py-0.5 rounded font-bold text-[10px] bg-white/[0.06] text-neutral-200 border border-white/[0.07]">
-                        {rec.type}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-neutral-200">
-                      {rec.value}
-                    </td>
-                    <td className="py-2.5 px-3 text-neutral-400">
-                      {rec.ttl}s
-                    </td>
-                    {canEdit && (
-                      <td className="py-2.5 px-3 text-right font-sans">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleOpenEditRecord(rec)}
-                            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
-                            title="Edit Record"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRecord(rec.id, rec.name)}
-                            className="p-1.5 rounded-lg text-neutral-400 hover:text-red-400 hover:bg-red-500/[0.08] transition-all cursor-pointer"
-                            title="Delete Record"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                {filteredRecords.map((rec) => {
+                  const isEditing = editingRecordId === rec.id;
+                  return (
+                    <tr key={rec.id} className="hover:bg-white/[0.02] transition-colors group">
+                      <td className="py-2.5 px-3">
+                        <button
+                          onClick={() => handleToggleRecordActive(rec)}
+                          disabled={!canEdit}
+                          className={`w-3 h-3 rounded-full border transition-all cursor-pointer ${
+                            rec.is_active
+                              ? 'bg-emerald-400 border-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.5)]'
+                              : 'bg-neutral-800 border-neutral-600'
+                          }`}
+                          title={rec.is_active ? 'Active (Click to disable)' : 'Disabled (Click to enable)'}
+                        />
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td className="py-2.5 px-3 font-semibold text-white">
+                        {rec.name}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-1.5 py-0.5 rounded font-bold text-[10px] bg-white/[0.06] text-neutral-200 border border-white/[0.07]">
+                          {rec.type}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-neutral-200 font-sans">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveInlineEdit(rec.id);
+                                if (e.key === 'Escape') setEditingRecordId(null);
+                              }}
+                              autoFocus
+                              className="px-2 py-1 bg-black/60 border border-blue-500/50 rounded text-xs font-mono text-white focus:outline-none"
+                            />
+                            <button
+                              onClick={() => handleSaveInlineEdit(rec.id)}
+                              className="p-1 text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                              title="Save"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setEditingRecordId(null)}
+                              className="p-1 text-neutral-500 hover:text-white cursor-pointer"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span
+                            onClick={() => {
+                              if (canEdit) {
+                                setEditingRecordId(rec.id);
+                                setEditingValue(rec.value);
+                              }
+                            }}
+                            className={`font-mono text-xs ${canEdit ? 'cursor-pointer hover:text-blue-300 underline decoration-dotted underline-offset-2' : ''}`}
+                            title={canEdit ? 'Click to edit in place' : ''}
+                          >
+                            {rec.value}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-neutral-400 font-sans">
+                        {rec.ttl}s
+                      </td>
+                      {canEdit && (
+                        <td className="py-2.5 px-3 text-right font-sans">
+                          <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                            {!isEditing && (
+                              <button
+                                onClick={() => {
+                                  setEditingRecordId(rec.id);
+                                  setEditingValue(rec.value);
+                                }}
+                                className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+                                title="Edit route value"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteRecord(rec.id, rec.name)}
+                              className="p-1.5 rounded-lg text-neutral-400 hover:text-red-400 hover:bg-red-500/[0.08] transition-all cursor-pointer"
+                              title="Delete route"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
 
                 {filteredRecords.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-neutral-500 font-sans text-xs">
-                      No records in this zone.
+                      No routes in this zone. Use the input bar above to add one!
                     </td>
                   </tr>
                 )}
@@ -435,12 +496,12 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
         </div>
       </div>
 
-      {/* Modal: Add Domain Zone */}
+      {/* Modal: New Zone */}
       {showDomainModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#14161f] border border-white/[0.1] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-              <h4 className="text-sm font-semibold text-white">New Domain Zone</h4>
+              <h4 className="text-sm font-semibold text-white">Create Domain Zone</h4>
               <button onClick={() => setShowDomainModal(false)} className="text-neutral-400 hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
@@ -449,12 +510,12 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
             <form onSubmit={handleCreateDomain} className="space-y-4">
               <div>
                 <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-1.5">
-                  Domain Name
+                  Zone Domain Name
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. app.test or staging.local"
+                  placeholder="e.g. dev.local or mycompany.test"
                   value={newDomainName}
                   onChange={(e) => setNewDomainName(e.target.value)}
                   className="w-full px-3 py-2 bg-black/40 border border-white/[0.08] rounded-xl text-neutral-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/40 font-mono"
@@ -463,7 +524,7 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
 
               <div>
                 <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-1.5">
-                  Description (Optional)
+                  Description
                 </label>
                 <input
                   type="text"
@@ -487,140 +548,6 @@ export const DomainsTab: React.FC<DomainsTabProps> = ({
                   className="px-4 py-1.5 rounded-xl text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 active:scale-[0.97] transition-all cursor-pointer shadow-md"
                 >
                   Create Zone
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Add or Edit Record */}
-      {showRecordModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#14161f] border border-white/[0.1] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-              <h4 className="text-sm font-semibold text-white">
-                {editingRecord ? 'Edit Record' : 'New DNS Record'}
-              </h4>
-              <button onClick={() => setShowRecordModal(false)} className="text-neutral-400 hover:text-white cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveRecord} className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-1.5">
-                    Record Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. api.local.dev or *.local.dev"
-                    value={recName}
-                    onChange={(e) => setRecName(e.target.value)}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/[0.08] rounded-xl text-neutral-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/40 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-1.5">
-                    Type
-                  </label>
-                  <select
-                    value={recType}
-                    onChange={(e) => setRecType(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/[0.08] rounded-xl text-neutral-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/40 font-semibold"
-                  >
-                    <option value="A">A (IPv4)</option>
-                    <option value="AAAA">AAAA (IPv6)</option>
-                    <option value="CNAME">CNAME</option>
-                    <option value="TXT">TXT</option>
-                    <option value="MX">MX</option>
-                    <option value="PTR">PTR</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-1.5">
-                  Target Value / Destination
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={recType === 'A' ? '127.0.0.1' : recType === 'CNAME' ? 'app.internal' : 'Record value'}
-                  value={recValue}
-                  onChange={(e) => setRecValue(e.target.value)}
-                  className="w-full px-3 py-2 bg-black/40 border border-white/[0.08] rounded-xl text-neutral-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/40 font-mono"
-                />
-
-                {recType === 'A' && (
-                  <div className="mt-2 flex items-center gap-1.5 text-[11px]">
-                    <span className="text-neutral-500">Presets:</span>
-                    <button
-                      type="button"
-                      onClick={() => setRecValue('127.0.0.1')}
-                      className="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.1] text-blue-400 font-mono cursor-pointer"
-                    >
-                      127.0.0.1
-                    </button>
-                    {stats?.hostIps?.[0] && (
-                      <button
-                        type="button"
-                        onClick={() => setRecValue(stats.hostIps[0].address)}
-                        className="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.1] text-emerald-400 font-mono cursor-pointer"
-                      >
-                        LAN: {stats.hostIps[0].address}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-1.5">
-                    TTL (Seconds)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={recTtl}
-                    onChange={(e) => setRecTtl(parseInt(e.target.value, 10) || 60)}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/[0.08] rounded-xl text-neutral-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                  />
-                </div>
-
-                {recType === 'MX' && (
-                  <div>
-                    <label className="block text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-1.5">
-                      Priority
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={recPriority}
-                      onChange={(e) => setRecPriority(parseInt(e.target.value, 10) || 10)}
-                      className="w-full px-3 py-2 bg-black/40 border border-white/[0.08] rounded-xl text-neutral-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRecordModal(false)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-neutral-400 hover:text-white transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 rounded-xl text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 active:scale-[0.97] transition-all cursor-pointer shadow-md"
-                >
-                  {editingRecord ? 'Update' : 'Save'}
                 </button>
               </div>
             </form>
