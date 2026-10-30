@@ -6,7 +6,7 @@
 
   <p>
     <a href="#-quick-start">Quick Start</a> •
-    <a href="#-video-walkthrough">Video Demo</a> •
+    <a href="#-dashboard-preview">Preview</a> •
     <a href="#-key-features">Features</a> •
     <a href="#-testing-dns-resolution">Testing DNS</a> •
     <a href="#-test-suites">Test Suites</a> •
@@ -16,13 +16,22 @@
 
 ---
 
-## 🎬 Video Walkthrough
-
-Watch DNSer in action — logging in, creating instant routes, performing in-browser DNS verification, live-querying over UDP, and reviewing real-time SSE stream traffic:
+## 🖥️ Dashboard Preview
 
 <div align="center">
-  <video src="docs/demo.mp4" controls width="100%" style="max-width: 900px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);" autoplay muted loop>
-    Your browser does not support the video tag. You can view the demo video file at <code>docs/demo.mp4</code>.
+  <img src="docs/dashboard.png" alt="DNSer Overview Dashboard" width="100%" style="max-width: 960px; border-radius: 10px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);" />
+  <p><em>DNSer real-time dashboard with Quick Route bar, interactive DNS resolver, and live query traffic feed.</em></p>
+</div>
+
+---
+
+## 🎬 10-Second Demo
+
+Watch DNSer in action with clean logs and real-time DNS resolution:
+
+<div align="center">
+  <video src="docs/demo.mp4" controls width="100%" style="max-width: 900px; border-radius: 10px; box-shadow: 0 16px 36px rgba(0,0,0,0.4);" poster="docs/dashboard.png">
+    Your browser does not support the video tag. View the demo video file directly at <a href="docs/demo.mp4"><code>docs/demo.mp4</code></a>.
   </video>
   <p><em>Direct video file: <a href="docs/demo.mp4"><code>docs/demo.mp4</code></a></em></p>
 </div>
