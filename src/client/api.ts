@@ -1,6 +1,6 @@
 import type { UserPublic, Domain, DnsRecord, QueryLogEntry, ServerSettings, ServerStats } from './types.js';
 
-const TOKEN_KEY = 'dev_dns_token';
+const TOKEN_KEY = 'dnser_token';
 
 export const authStorage = {
   getToken: () => localStorage.getItem(TOKEN_KEY),

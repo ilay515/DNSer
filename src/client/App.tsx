@@ -128,7 +128,7 @@ export const App: React.FC = () => {
       </main>
 
       <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
-        DevDNS Server • Local Offline Developer Daemon • Port {stats?.dns.port || 5353} (UDP)
+        DNSer • Local Offline Developer Daemon • Port {stats?.dns.port || 5353} (UDP)
       </footer>
     </div>
   );

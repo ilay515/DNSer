@@ -1,7 +1,7 @@
 {
-  "name": "dev-dns-server",
+  "name": "dnser",
   "version": "1.0.0",
-  "description": "Minimal offline developer DNS server with web UI, user control, and query logs",
+  "description": "DNSer — Minimal offline developer DNS server with web UI, user control, and query logs",
   "main": "dist/server/index.js",
   "type": "module",
   "scripts": {

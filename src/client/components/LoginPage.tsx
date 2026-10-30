@@ -46,7 +46,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-4 shadow-lg shadow-indigo-500/5">
             <Server className="w-8 h-8" />
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-white">DevDNS Server</h2>
+          <h2 className="text-3xl font-extrabold tracking-tight text-white">DNSer</h2>
           <p className="mt-2 text-sm text-slate-400">
             Minimal offline developer DNS daemon & control dashboard
           </p>
@@ -133,7 +133,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </div>
 
         <div className="text-center text-xs text-slate-500">
-          DevDNS v1.0 • Offline Local DNS Daemon • Node.js v24
+          DNSer v1.0 • Offline Local DNS Daemon • Node.js v24
         </div>
       </div>
     </div>

@@ -39,7 +39,7 @@ function queryDns(port: number, name: string, type: 'A' | 'TXT' | 'CNAME' = 'A')
 }
 
 async function runTests() {
-  console.log('🧪 Running DevDNS Server Tests...');
+  console.log('🧪 Running DNSer Tests...');
   const testDbPath = path.join(process.cwd(), 'data', 'test-dns.db');
   if (fs.existsSync(testDbPath)) {
     fs.unlinkSync(testDbPath);

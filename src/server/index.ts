@@ -57,11 +57,11 @@ async function bootstrap() {
   });
 
   await app.register(cookie, {
-    secret: process.env.COOKIE_SECRET || 'dev-dns-local-cookie-secret-key-9988',
+    secret: process.env.COOKIE_SECRET || 'dnser-local-cookie-secret-key-9988',
   });
 
   await app.register(jwt, {
-    secret: process.env.JWT_SECRET || 'dev-dns-local-jwt-secret-key-3344',
+    secret: process.env.JWT_SECRET || 'dnser-local-jwt-secret-key-3344',
   });
 
   // Register API routes
@@ -88,8 +88,8 @@ async function bootstrap() {
   try {
     await app.listen({ port: httpPort, host: '0.0.0.0' });
     console.log(`\n=================================================`);
-    console.log(`🚀 DevDNS Web Dashboard:  http://localhost:${httpPort}`);
-    console.log(`🛰️  DevDNS Server Daemon:   udp://0.0.0.0:${dnsPort}`);
+    console.log(`🚀 DNSer Web Dashboard:  http://localhost:${httpPort}`);
+    console.log(`🛰️  DNSer Server Daemon:   udp://0.0.0.0:${dnsPort}`);
     console.log(`🔑 Default Admin Login:    admin / admin123`);
     console.log(`=================================================\n`);
   } catch (err) {
@@ -99,7 +99,7 @@ async function bootstrap() {
 
   // Graceful shutdown
   const shutdown = async () => {
-    console.log('\nShutting down DevDNS...');
+    console.log('\nShutting down DNSer...');
     await dnsEngine.stop();
     await app.close();
     process.exit(0);

@@ -29,7 +29,7 @@ function parseArgs(): { domain: string; type: string; port: number; host: string
 async function runQuery() {
   const { domain, type, port, host } = parseArgs();
 
-  console.log(`\n🔍 Querying DevDNS at udp://${host}:${port}`);
+  console.log(`\n🔍 Querying DNSer at udp://${host}:${port}`);
   console.log(`🌐 Question: ${domain} (Type: ${type})\n`);
 
   const socket = dgram.createSocket('udp4');
@@ -55,16 +55,18 @@ async function runQuery() {
       const response = dnsPacket.decode(msg);
       socket.close();
 
+      const rcode = (response as any).rcode || 'UNKNOWN';
       console.log(`⏱️  Latency: ${latency}ms`);
-      console.log(`📊 Status:  ${response.rcode}`);
+      console.log(`📊 Status:  ${rcode}`);
 
       if (response.answers && response.answers.length > 0) {
         console.log(`\n✅ Answers (${response.answers.length}):`);
         for (const ans of response.answers) {
-          console.log(`   • ${ans.name}  [${ans.type}]  ${(ans as any).data || ''}  (TTL: ${ans.ttl}s)`);
+          const ttl = (ans as any).ttl !== undefined ? (ans as any).ttl : 60;
+          console.log(`   • ${ans.name}  [${ans.type}]  ${(ans as any).data || ''}  (TTL: ${ttl}s)`);
         }
       } else {
-        console.log(`\n⚠️  No answer records returned (${response.rcode}).`);
+        console.log(`\n⚠️  No answer records returned (${rcode}).`);
       }
       console.log('');
       process.exit(0);

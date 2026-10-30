@@ -1,6 +1,6 @@
-<img src="assets/icon.svg" width="64" height="64" alt="DevDNS">
+<img src="assets/icon.svg" width="64" height="64" alt="DNSer">
 
-# DevDNS — Developer DNS Server
+# DNSer — Developer DNS Server
 
 A minimal, offline-first DNS server designed specifically for local web development, microservices, container routing, and internal staging environments. It includes an embedded UDP DNS daemon, SQLite persistence, user authentication, role-based user management, domain & record controls, and real-time query logging.
 
@@ -64,16 +64,25 @@ pnpm start
 
 ## 🧪 Testing DNS Queries
 
-To verify resolution using standard DNS tools:
+To query the server without needing `nslookup` or `dig` installed:
 
 ```bash
 # Query default domain
-dig @127.0.0.1 -p 5353 local.dev
+pnpm query local.dev
 
 # Query wildcard subdomain
-dig @127.0.0.1 -p 5353 test-api.local.dev
+pnpm query api.local.dev
 
-# Cross-platform with nslookup
+# Query custom port or type
+pnpm query local.dev --port 5353 --type A
+```
+
+Or using standard system utilities:
+```bash
+# dig
+dig @127.0.0.1 -p 5353 local.dev
+
+# nslookup
 nslookup -port=5353 local.dev 127.0.0.1
 ```
 

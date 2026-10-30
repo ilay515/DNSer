@@ -194,7 +194,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ user, stats, onRefresh
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
             <HelpCircle className="w-4 h-4 text-cyan-400" />
-            <h3 className="text-sm font-bold text-white">How to Route to DevDNS</h3>
+            <h3 className="text-sm font-bold text-white">How to Route to DNSer</h3>
           </div>
 
           <div className="space-y-4 text-xs text-slate-300">
