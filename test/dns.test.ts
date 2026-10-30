@@ -7,19 +7,19 @@ import { DatabaseService } from '../src/server/db.js';
 import { DnsEngine } from '../src/server/dns-engine.js';
 import { hashPassword, verifyPassword } from '../src/server/auth.js';
 
-function queryDns(port: number, name: string, type: 'A' | 'TXT' | 'CNAME' = 'A'): Promise<dnsPacket.Packet> {
+function queryDns(port: number, name: string, type: 'A' | 'AAAA' | 'TXT' | 'MX' | 'CNAME' = 'A'): Promise<dnsPacket.Packet> {
   return new Promise((resolve, reject) => {
     const socket = dgram.createSocket('udp4');
     const query = dnsPacket.encode({
       type: 'query',
       id: Math.floor(Math.random() * 65000),
       flags: dnsPacket.RECURSION_DESIRED,
-      questions: [{ type, name }],
+      questions: [{ type: type as any, name }],
     });
 
     const timer = setTimeout(() => {
       try { socket.close(); } catch {}
-      reject(new Error(`DNS query for ${name} timed out`));
+      reject(new Error(`DNS query for ${name} [${type}] timed out`));
     }, 2000);
 
     socket.on('message', (msg) => {
@@ -39,7 +39,7 @@ function queryDns(port: number, name: string, type: 'A' | 'TXT' | 'CNAME' = 'A')
 }
 
 async function runTests() {
-  console.log('🧪 Running DNSer Tests...');
+  console.log('🧪 Running DNSer Engine Tests...');
   const testDbPath = path.join(process.cwd(), 'data', 'test-dns.db');
   if (fs.existsSync(testDbPath)) {
     fs.unlinkSync(testDbPath);
@@ -75,42 +75,119 @@ async function runTests() {
     assert.strictEqual(res1.answers?.length, 1);
     assert.strictEqual((res1.answers?.[0] as any).data, '127.0.0.1');
 
-    // 5. Resolve wildcard record
+    // 5. Case-insensitivity & trailing dot
+    console.log('-> Testing case-insensitivity & trailing dot: LoCaL.DeV.');
+    const resCase = await queryDns(5354, 'LoCaL.DeV.');
+    assert.strictEqual(resCase.rcode, 'NOERROR');
+    assert.strictEqual((resCase.answers?.[0] as any).data, '127.0.0.1');
+
+    // 6. Resolve wildcard record
     console.log('-> Testing wildcard query: random-sub.local.dev');
     const res2 = await queryDns(5354, 'random-sub.local.dev');
     assert.strictEqual(res2.rcode, 'NOERROR');
     assert.strictEqual(res2.answers?.length, 1);
     assert.strictEqual((res2.answers?.[0] as any).data, '127.0.0.1');
 
-    // 6. Test NXDOMAIN
+    // 7. Test NXDOMAIN
     console.log('-> Testing NXDOMAIN on nonexistent.zone');
     const res3 = await queryDns(5354, 'nonexistent.zone');
     assert.strictEqual(res3.rcode, 'NXDOMAIN');
 
-    // 7. Dynamic record creation & lookup
-    console.log('-> Testing dynamic domain & record addition');
+    // 8. Dynamic records: AAAA, TXT, MX, CNAME
+    console.log('-> Testing dynamic AAAA, TXT, MX, and CNAME records');
     const newDomain = db.createDomain('custom-dev.test', 'Test domain', users[0].id);
+
+    // AAAA IPv6
     db.createRecord({
       domain_id: newDomain.id,
-      name: 'service.custom-dev.test',
+      name: 'ipv6.custom-dev.test',
+      type: 'AAAA',
+      value: '::1',
+      ttl: 60,
+    });
+
+    // TXT
+    db.createRecord({
+      domain_id: newDomain.id,
+      name: 'verify.custom-dev.test',
+      type: 'TXT',
+      value: 'dev-token-abc123xyz',
+      ttl: 60,
+    });
+
+    // MX
+    db.createRecord({
+      domain_id: newDomain.id,
+      name: 'mail.custom-dev.test',
+      type: 'MX',
+      value: 'mailhost.local',
+      ttl: 60,
+      priority: 5,
+    });
+
+    // CNAME
+    db.createRecord({
+      domain_id: newDomain.id,
+      name: 'alias.custom-dev.test',
+      type: 'CNAME',
+      value: 'target.custom-dev.test',
+      ttl: 60,
+    });
+
+    dnsEngine.refreshRecords();
+
+    // Query AAAA
+    const aaaaRes = await queryDns(5354, 'ipv6.custom-dev.test', 'AAAA');
+    assert.strictEqual(aaaaRes.rcode, 'NOERROR');
+    assert.strictEqual((aaaaRes.answers?.[0] as any).data, '::1');
+
+    // Query TXT
+    const txtRes = await queryDns(5354, 'verify.custom-dev.test', 'TXT');
+    assert.strictEqual(txtRes.rcode, 'NOERROR');
+    const txtData = (txtRes.answers?.[0] as any).data;
+    const txtStrings = (Array.isArray(txtData) ? txtData : [txtData]).map((b: any) => Buffer.isBuffer(b) ? b.toString() : String(b));
+    assert.ok(txtStrings.includes('dev-token-abc123xyz'));
+
+    // Query MX
+    const mxRes = await queryDns(5354, 'mail.custom-dev.test', 'MX');
+    assert.strictEqual(mxRes.rcode, 'NOERROR');
+    assert.strictEqual((mxRes.answers?.[0] as any).data.exchange, 'mailhost.local');
+    assert.strictEqual((mxRes.answers?.[0] as any).data.preference, 5);
+
+    // Query CNAME
+    const cnameRes = await queryDns(5354, 'alias.custom-dev.test', 'CNAME');
+    assert.strictEqual(cnameRes.rcode, 'NOERROR');
+    assert.strictEqual((cnameRes.answers?.[0] as any).data, 'target.custom-dev.test');
+
+    // 9. Paused/Disabled Record (is_active: 0)
+    console.log('-> Testing paused record (is_active: 0)');
+    const pausedRec = db.createRecord({
+      domain_id: newDomain.id,
+      name: 'paused.custom-dev.test',
       type: 'A',
-      value: '192.168.1.100',
-      ttl: 120,
+      value: '1.2.3.4',
+      is_active: 0,
     });
     dnsEngine.refreshRecords();
 
-    const res4 = await queryDns(5354, 'service.custom-dev.test');
-    assert.strictEqual(res4.rcode, 'NOERROR');
-    assert.strictEqual((res4.answers?.[0] as any).data, '192.168.1.100');
+    const pausedRes = await queryDns(5354, 'paused.custom-dev.test');
+    assert.strictEqual(pausedRes.rcode, 'NXDOMAIN');
 
-    // 8. Wait for query log flush and check logs
+    // 10. Domain Cascade Delete
+    console.log('-> Testing domain cascade deletion');
+    db.deleteDomain(newDomain.id);
+    dnsEngine.refreshRecords();
+    const afterDeleteRes = await queryDns(5354, 'ipv6.custom-dev.test', 'AAAA');
+    assert.strictEqual(afterDeleteRes.rcode, 'NXDOMAIN');
+
+    // 11. Wait for query log flush and check logs
     console.log('-> Testing query logging buffer');
     await new Promise((r) => setTimeout(r, 2200));
-    const logs = db.getLogs({ limit: 10 });
-    assert.strictEqual(logs.total >= 3, true);
+    const logs = db.getLogs({ limit: 20 });
+    assert.strictEqual(logs.total >= 6, true);
     console.log(`✅ Logged ${logs.total} queries successfully.`);
 
-    console.log('\n🎉 ALL TESTS PASSED SUCCESSFULLY!');
+    console.log('\n🎉 ALL DNS ENGINE TESTS PASSED SUCCESSFULLY!');
   } finally {
     await dnsEngine.stop();
     if (fs.existsSync(testDbPath)) {

@@ -12,7 +12,9 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build": "pnpm build:client && pnpm build:server",
     "start": "node dist/server/index.js",
-    "test": "tsx test/dns.test.ts",
+    "test": "tsx test/dns.test.ts && tsx test/api.test.ts",
+    "test:dns": "tsx test/dns.test.ts",
+    "test:api": "tsx test/api.test.ts",
     "query": "tsx src/server/cli-query.ts"
   },
   "dependencies": {
